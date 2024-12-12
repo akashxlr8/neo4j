@@ -10,7 +10,6 @@ from langchain_core.runnables.history import RunnableWithMessageHistory
 from langchain import hub
 from utils import get_session_id
 
-from tools.vector import get_movie_plot
 from tools.cypher import cypher_qa
 
 chat_prompt = ChatPromptTemplate.from_messages(
