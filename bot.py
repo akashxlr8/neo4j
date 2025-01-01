@@ -43,7 +43,10 @@ def handle_submit(message):
                     if current_tool_steps:
                         tool_count += 1
                         print(f"Showing Tool Use #{tool_count}")  # Debug print
-                        with st.expander(f"🔧 Tool Use #{tool_count}", expanded=False):
+                        # Get the tool name from the first step that has an Action
+                        tool_name = next((step.get('Action', 'Tool Use') for step in current_tool_steps 
+                                         if isinstance(step, dict) and 'Action' in step), 'Tool Use')
+                        with st.expander(f"🔧️ {tool_name} (Tool Used: {step.get('Action', 'Unknown')}) #{tool_count}", expanded=False):
                             for prev_step in current_tool_steps:
                                 col1, col2 = st.columns([1, 4])
                                 for key, (emoji, label) in {
@@ -66,24 +69,33 @@ def handle_submit(message):
             # Show any remaining steps
             if current_tool_steps:
                 tool_count += 1
-                print(f"Showing final Tool Use #{tool_count}")  # Debug print
-                with st.expander(f"🔧 Tool Use #{tool_count}", expanded=False):
-                    for step in current_tool_steps:
+                print(f"Showing Tool Use #{tool_count}")  # Debug print
+                # Get the tool name from the first step that has an Action
+                tool_name = next((step.get('Action', 'Tool Use') for step in current_tool_steps 
+                                 if isinstance(step, dict) and 'Action' in step), 'Tool Use')
+                
+                # Check if step is a dictionary before calling get()
+                action = step.get('Action', 'Unknown') if isinstance(step, dict) else 'Unknown'
+                
+                # Modified expander label to show both tool name and tool used
+                with st.expander(f"🔧️ Tool: {tool_name} | Used: {action} #{tool_count}", expanded=False):
+                    for prev_step in current_tool_steps:
                         col1, col2 = st.columns([1, 4])
-                        for key, (emoji, label) in {
-                            'Thought': ('🤔', 'Thought'),
-                            'Action': ('⚡', 'Action'),
-                            'Action Input': ('📥', 'Input'),
-                            'Observation': ('👁️', 'Observation')
-                        }.items():
-                            if key in step:
-                                col1.markdown(f"**{emoji} {label}:**")
-                                if key == 'Action Input':
-                                    col2.markdown(f"```json\n{step[key]}\n```")
-                                elif key == 'Observation':
-                                    col2.markdown(f"```\n{step[key]}\n```")
-                                else:
-                                    col2.markdown(step[key])
+                        if isinstance(prev_step, dict):  # Only process dictionary steps
+                            for key, (emoji, label) in {
+                                'Thought': ('🤔', 'Thought'),
+                                'Action': ('⚡', 'Action'),
+                                'Action Input': ('📥', 'Input'),
+                                'Observation': ('👁️', 'Observation')
+                            }.items():
+                                if key in prev_step:
+                                    col1.markdown(f"**{emoji} {label}:**")
+                                    if key == 'Action Input':
+                                        col2.markdown(f"```json\n{prev_step[key]}\n```")
+                                    elif key == 'Observation':
+                                        col2.markdown(f"```\n{prev_step[key]}\n```")
+                                    else:
+                                        col2.markdown(prev_step[key])
         else:
             print("No intermediate steps found in response")  # Debug print
         
