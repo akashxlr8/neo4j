@@ -1,12 +1,16 @@
 import streamlit as st
 from utils import write_message
 from agent import generate_response
+from logger import log
+
+logger = log('bot')
 
 # Page Config
 st.set_page_config("Neo4j Chatbot", page_icon=":shopping_cart:")
 
 # Set up Session State
 if "messages" not in st.session_state:
+    logger.info("Initializing new chat session")
     st.session_state.messages = [
         {"role": "assistant", "content": "Hi, I'm your Neo4j Chatbot! How can I help you?"},
     ]
@@ -83,9 +87,11 @@ def handle_submit(message):
         
         # Write the final response outside the expanders
         if isinstance(response, dict) and 'output' in response:
-            write_message('assistant', response['output'])
+            cleaned_output = response['output'].strip('`').strip()
+            write_message('assistant', cleaned_output)
         elif isinstance(response, str):
-            write_message('assistant', response)
+            cleaned_output = response.strip('`').strip()
+            write_message('assistant', cleaned_output)
 
 # Display messages in Session State
 for message in st.session_state.messages:
@@ -94,6 +100,7 @@ for message in st.session_state.messages:
 
 # Handle any user input
 if prompt := st.chat_input("What would you like to know about movies?"):
+    logger.info(f"Received user input: {prompt}")
     # Display user message in chat message container
     write_message('user', prompt)
     # Generate a response
