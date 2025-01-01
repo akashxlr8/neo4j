@@ -54,8 +54,8 @@ You can use semantic search to find similar products and provide detailed produc
 Be as helpful as possible and return as much information as possible.
 Do not answer any questions that do not relate to products, orders, or customers.
 
-Previous conversation context:
-{chat_history}
+Previous conversation history:
+{{chat_history}}
 
 Remember to maintain context from the previous messages when answering follow-up questions.
 If a question seems incomplete, try to understand it in the context of previous messages.
@@ -99,14 +99,16 @@ agent = create_react_agent(llm, tools, agent_prompt)
 agent_executor = AgentExecutor(
     agent=agent,
     tools=tools,
-    verbose=True
-    )
+    verbose=True,
+    return_intermediate_steps=True
+)
 
 chat_agent = RunnableWithMessageHistory(
     agent_executor,
     get_memory,
     input_messages_key="input",
     history_messages_key="chat_history",
+    output_messages_key="output"
 )
 
 def generate_response(user_input, show_intermediate_steps=False):
