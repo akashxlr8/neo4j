@@ -1,6 +1,7 @@
 import streamlit as st
 from llm import llm, embeddings
 from graph import graph
+from logger import log
 
 # tag::import_vector[]
 from langchain_neo4j import Neo4jVector
@@ -14,8 +15,10 @@ from langchain.chains import create_retrieval_chain
 from langchain_core.prompts import ChatPromptTemplate
 # end::import_chat_prompt[]
 
+logger = log('vector')
 
 # tag::vector[]
+logger.info("Initializing Neo4jVector with existing index")
 neo4jvector = Neo4jVector.from_existing_index(
     embeddings,
     graph=graph,
