@@ -1,41 +1,32 @@
 import logging
-from datetime import datetime
 import os
-from logging.handlers import RotatingFileHandler
+from datetime import datetime
 
-def setup_logger():
-    """Setup a single logger for the entire application"""
-    
+def setup_logger(name):
     # Create logs directory if it doesn't exist
-    log_dir = 'logs'
-    if not os.path.exists(log_dir):
-        os.makedirs(log_dir)
+    if not os.path.exists('logs'):
+        os.makedirs('logs')
+        
+    # Create logger
+    logger = logging.getLogger(name)
+    logger.setLevel(logging.DEBUG)
     
-    # Create formatter with component name
-    formatter = logging.Formatter(
-        '%(asctime)s | %(component)s | %(levelname)s | %(message)s',
-        datefmt='%Y-%m-%d %H:%M:%S'
-    )
+    # Create formatter
+    formatter = logging.Formatter('%(asctime)s | %(name)s | %(levelname)s | %(message)s')
     
-    # Create handler
-    file_handler = RotatingFileHandler(
-        os.path.join(log_dir, 'northwind_app.log'),
-        maxBytes=10*1024*1024,  # 10MB
-        backupCount=5
-    )
+    # File handler
+    file_handler = logging.FileHandler(f'logs/northwind_app.log')
     file_handler.setFormatter(formatter)
     
-    # Create logger
-    logger = logging.getLogger('northwind')
-    logger.setLevel(logging.INFO)
+    # Stream handler for console
+    stream_handler = logging.StreamHandler()
+    stream_handler.setFormatter(formatter)
+    
+    # Add handlers
     logger.addHandler(file_handler)
+    logger.addHandler(stream_handler)
     
     return logger
 
-# Create the logger instance
-logger = setup_logger()
-
-# Utility function to add component context
-def log(component):
-    """Returns a logger that automatically adds component information"""
-    return logging.LoggerAdapter(logger, {'component': component}) 
+def log(component_name):
+    return setup_logger(component_name) 

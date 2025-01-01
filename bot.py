@@ -19,6 +19,8 @@ if "messages" not in st.session_state:
 def handle_submit(message):
     """Submit handler that processes user input and generates response"""
     
+    logger.info("Processing submit request")
+    
     # Handle the response
     with st.spinner('Thinking...'):
         # Call the agent with verbose=True
