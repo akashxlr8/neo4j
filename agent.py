@@ -46,7 +46,14 @@ tools = [
 ]
 
 def get_memory(session_id):
-    return Neo4jChatMessageHistory(session_id=session_id, graph=graph)
+    memory = Neo4jChatMessageHistory(session_id=session_id, graph=graph)
+    # Get all messages and keep only last 3
+    messages = memory.messages[-3:] if memory.messages else []
+    # Clear and add back only last 3
+    memory.clear()
+    for msg in messages:
+        memory.add_message(msg)
+    return memory
 
 agent_prompt = PromptTemplate.from_template("""
 You are a store expert providing information about products, orders, and customers in the Northwind database.
@@ -58,7 +65,7 @@ Previous conversation history:
 {{chat_history}}
 
 Remember to maintain context from the previous messages when answering follow-up questions.
-If a question seems incomplete, try to understand it in the context of previous messages.
+If a question seems incomplete, try to understand it in the context of previous messages. Scan thru the chat history to find relevant information.
 
 For each step, you should:
 1. Think about whether you need to use a tool
@@ -123,38 +130,25 @@ def generate_response(user_input, show_intermediate_steps=False):
         logger.debug(f"Raw chat agent response: {response}")
         
         # Log agent thoughts and actions
-        if isinstance(response, dict) and 'result' in response:
-            result = response['result']
-            if 'intermediate_steps' in result:
-                for step in result['intermediate_steps']:
+        if isinstance(response, dict) and 'intermediate_steps' in response:
+            for step in response['intermediate_steps']:
+                if isinstance(step, dict):
                     logger.info(f"Agent Thought: {step.get('thought', '')}")
                     logger.info(f"Agent Action: {step.get('action', '')}")
                     logger.info(f"Agent Action Input: {step.get('action_input', '')}")
                     logger.info(f"Agent Observation: {step.get('observation', '')}")
         
         # Extract the actual response
-        if isinstance(response, dict) and 'result' in response:
-            logger.info("Extracting result from response")
-            response = response['result']
+        output = response.get('output', '')
+        steps = response.get('intermediate_steps', [])
+        logger.info(f"Extracted output and {len(steps)} intermediate steps")
         
-        # Get final output
-        if isinstance(response, dict):
-            output = response.get('output', '')
-            if not output and 'response' in response:
-                output = response['response']
-            steps = response.get('intermediate_steps', [])
-            logger.info(f"Extracted output and {len(steps)} intermediate steps")
-        else:
-            output = str(response)
-            steps = []
-            logger.info("Converted response to string output")
-
         logger.info(f"Final response: {output}")
         return {
             'output': output,
             'intermediate_steps': steps if show_intermediate_steps else []
         }
-
+    
     except Exception as e:
         logger.error(f"Error in generate_response: {str(e)}", exc_info=True)
         return {
