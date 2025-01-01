@@ -15,13 +15,15 @@ llm = ChatOpenAI(
 # Create the Embedding model
 from langchain_community.embeddings import JinaEmbeddings
 
-# embeddings = JinaEmbeddings(
-#     jina_api_key=st.secrets["JINA_API_KEY"],
-#     model_name="jina-embeddings-v2-base-en"
-# )
-
-embeddings = OpenAIEmbeddings(
-    api_key=st.secrets["OPENAI_API_KEY"],
-    model="text-embedding-3-small"
+embeddings = JinaEmbeddings(
+    jina_api_key=st.secrets["JINA_API_KEY"],
+    model_name="jina-embeddings-v2-base-en",
+    dimensions=768
 )
+
+# embeddings = OpenAIEmbeddings(
+#     api_key=st.secrets["OPENAI_API_KEY"],
+#     model="text-embedding-3-small",
+#     dimensions=768
+# )
 # end::embedding[]
