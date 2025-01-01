@@ -9,8 +9,13 @@ from langchain.agents import AgentExecutor, create_react_agent
 from langchain_core.runnables.history import RunnableWithMessageHistory
 from langchain import hub
 from utils import get_session_id
+from langchain.schema.runnable import RunnableMap
+from logger import log
 
 from tools.cypher import cypher_qa
+from tools.vector import retriever
+
+logger = log('agent')
 
 chat_prompt = ChatPromptTemplate.from_messages(
     [
@@ -24,18 +29,19 @@ movie_chat = chat_prompt | llm | StrOutputParser()
 tools = [
     Tool.from_function(
         name="General Chat",
-        description="For general chat about the company and its products and services not covered by other tools, Useful for answering generic questions about the company and its products and services",
+        description="For general chat about the company and its products and services not covered by other tools",
         func=movie_chat.invoke,
-    ), 
-    # Tool.from_function(
-    #     name="Movie Plot Search",  
-    #     description="For when you need to find information about movies based on a plot",
-    #     func=get_movie_plot, 
-    # ),
+    ),
     Tool.from_function(
         name="Northwind information",
         description="Provide information about products, orders, and customers in the Northwind database using Cypher",
-        func = cypher_qa
+        func=cypher_qa
+    ),
+    Tool.from_function(
+        name="Product Search",
+        description="For finding similar products or searching product descriptions semantically",
+        func=lambda q: [{"page_content": doc.page_content, "metadata": doc.metadata} 
+                       for doc in retriever.get_relevant_documents(q)]
     )
 ]
 
@@ -44,8 +50,15 @@ def get_memory(session_id):
 
 agent_prompt = PromptTemplate.from_template("""
 You are a store expert providing information about products, orders, and customers in the Northwind database.
+You can use semantic search to find similar products and provide detailed product information.
 Be as helpful as possible and return as much information as possible.
 Do not answer any questions that do not relate to products, orders, or customers.
+
+Previous conversation context:
+{chat_history}
+
+Remember to maintain context from the previous messages when answering follow-up questions.
+If a question seems incomplete, try to understand it in the context of previous messages.
 
 For each step, you should:
 1. Think about whether you need to use a tool
@@ -78,9 +91,6 @@ Final Answer: [your response here]
 
 Begin!
 
-Previous conversation history:
-{chat_history}
-
 New input: {input}
 {agent_scratchpad}
 """)
@@ -93,64 +103,59 @@ agent_executor = AgentExecutor(
     )
 
 chat_agent = RunnableWithMessageHistory(
-    agent_executor,
+    RunnableMap({"result": agent_executor}),
     get_memory,
     input_messages_key="input",
     history_messages_key="chat_history",
 )
 
 def generate_response(user_input, show_intermediate_steps=False):
-    """
-    Create a handler that calls the Conversational agent
-    and returns a response to be rendered in the UI
-    """
+    logger.info(f"Starting response generation for input: {user_input}")
     
-    print("Starting generate_response...")  # Debug print
-    
-    # Configure the agent executor with verbose output
-    agent_executor.verbose = True  # Always set to True for debugging
-    
-    # Call the agent
-    response = chat_agent.invoke(
-        {"input": user_input},
-        {"configurable": {"session_id": get_session_id()}},
-    )
-    
-    print("Raw response:", response)  # Debug print
-    
-    # Update response handling to be more consistent
-    if isinstance(response, dict):
-        output = response.get('output', '')
-        steps = response.get('intermediate_steps', [])
-    else:
-        output = str(response)
-        steps = []
-
-    if not show_intermediate_steps:
-        return output
-
-    intermediate_steps = []
-    for step in steps:
-        if not isinstance(step, tuple) or len(step) < 1:
-            continue
-            
-        action, observation = step[0], step[1] if len(step) > 1 else None
-        step_dict = {}
+    try:
+        logger.info("Invoking chat agent")
+        response = chat_agent.invoke(
+            {"input": user_input},
+            {"configurable": {"session_id": get_session_id()}},
+        )
+        logger.debug(f"Raw chat agent response: {response}")
         
-        if hasattr(action, 'log'):
-            for line in action.log.split('\n'):
-                for key in ['Thought:', 'Action:', 'Action Input:']:
-                    if key in line:
-                        dict_key = key.rstrip(':')
-                        step_dict[dict_key] = line.split(key)[1].strip()
+        # Log agent thoughts and actions
+        if isinstance(response, dict) and 'result' in response:
+            result = response['result']
+            if 'intermediate_steps' in result:
+                for step in result['intermediate_steps']:
+                    logger.info(f"Agent Thought: {step.get('thought', '')}")
+                    logger.info(f"Agent Action: {step.get('action', '')}")
+                    logger.info(f"Agent Action Input: {step.get('action_input', '')}")
+                    logger.info(f"Agent Observation: {step.get('observation', '')}")
         
-        if observation:
-            step_dict['Observation'] = str(observation)
-            
-        if step_dict:
-            intermediate_steps.append(step_dict)
+        # Extract the actual response
+        if isinstance(response, dict) and 'result' in response:
+            logger.info("Extracting result from response")
+            response = response['result']
+        
+        # Get final output
+        if isinstance(response, dict):
+            output = response.get('output', '')
+            if not output and 'response' in response:
+                output = response['response']
+            steps = response.get('intermediate_steps', [])
+            logger.info(f"Extracted output and {len(steps)} intermediate steps")
+        else:
+            output = str(response)
+            steps = []
+            logger.info("Converted response to string output")
 
-    return {
-        'output': output,
-        'intermediate_steps': intermediate_steps
-    }
+        logger.info(f"Final response: {output}")
+        return {
+            'output': output,
+            'intermediate_steps': steps if show_intermediate_steps else []
+        }
+
+    except Exception as e:
+        logger.error(f"Error in generate_response: {str(e)}", exc_info=True)
+        return {
+            'output': "I apologize, but I encountered an error while processing your request.",
+            'intermediate_steps': []
+        }
