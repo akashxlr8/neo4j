@@ -4,6 +4,7 @@ from graph import graph
 from langchain_neo4j import GraphCypherQAChain
 from langchain_core.prompts import PromptTemplate
 from neo4j.exceptions import ClientError, TransientError, DatabaseError
+from logger import log
 
 CYPHER_GENERATION_TEMPLATE = """
 You are an expert Neo4j Developer translating user questions into Cypher to answer questions about products, orders, and customers in the Northwind database.
@@ -48,9 +49,12 @@ Question:
 
 cypher_prompt = PromptTemplate.from_template(CYPHER_GENERATION_TEMPLATE)
 
-def execute_cypher_query(question):
+logger = log('cypher')
+
+def execute_cypher_query(query):
+    logger.info(f"Executing Cypher query: {query}")
     try:
-        response = cypher_qa(question)
+        response = cypher_qa(query)
         
         # Check if the response contains an error message
         if isinstance(response, str) and "ERROR:" in response:
@@ -62,9 +66,11 @@ def execute_cypher_query(question):
                 }
             }
         
+        logger.info(f"Query results: {response}")
         return {"result": response}
         
     except ClientError as e:
+        logger.error(f"Error executing query: {str(e)}", exc_info=True)
         return {
             "error": {
                 "type": "client_error",
@@ -74,6 +80,7 @@ def execute_cypher_query(question):
         }
         
     except TransientError as e:
+        logger.error(f"Error executing query: {str(e)}", exc_info=True)
         return {
             "error": {
                 "type": "transient_error",
@@ -83,6 +90,7 @@ def execute_cypher_query(question):
         }
         
     except DatabaseError as e:
+        logger.error(f"Error executing query: {str(e)}", exc_info=True)
         return {
             "error": {
                 "type": "database_error",
@@ -92,6 +100,7 @@ def execute_cypher_query(question):
         }
         
     except Exception as e:
+        logger.error(f"Error executing query: {str(e)}", exc_info=True)
         return {
             "error": {
                 "type": "unknown_error",
