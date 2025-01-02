@@ -11,6 +11,8 @@ from langchain import hub
 from utils import get_session_id
 from langchain.schema.runnable import RunnableMap
 from logger import log
+from langchain.agents.agent import AgentExecutor, BaseSingleActionAgent
+from langchain_core.runnables import RunnablePassthrough
 
 from tools.cypher import cypher_qa
 from tools.vector import retriever
@@ -24,13 +26,13 @@ chat_prompt = ChatPromptTemplate.from_messages(
     ]
 )
 
-movie_chat = chat_prompt | llm | StrOutputParser()
+general_chat = chat_prompt | llm | StrOutputParser()
 
 tools = [
     Tool.from_function(
         name="General Chat",
         description="For general chat about the company and its products and services not covered by other tools",
-        func=movie_chat.invoke,
+        func=general_chat.invoke,
     ),
     Tool.from_function(
         name="Northwind information",
@@ -49,15 +51,17 @@ def get_memory(session_id):
     memory = Neo4jChatMessageHistory(session_id=session_id, graph=graph)
     # Get all messages and keep only last 3
     messages = memory.messages[-3:] if memory.messages else []
-    # Clear and add back only last 3
+    # Clear and add back only last 3 with simplified format
     memory.clear()
     for msg in messages:
-        memory.add_message(msg)
+        # Store only the content without additional metadata
+        simplified_msg = msg.__class__(content=msg.content)
+        memory.add_message(simplified_msg)
     return memory
 
 agent_prompt = PromptTemplate.from_template("""
 You are a store expert providing information about products, orders, and customers in the Northwind database.
-
+Do not engage in general conversation or provide information that is not related to the store.
 IMPORTANT TOOL SELECTION GUIDELINES:
 1. Use "Product Search" tool for:
    - Finding products by description
@@ -77,7 +81,7 @@ IMPORTANT TOOL SELECTION GUIDELINES:
    - Questions not requiring specific data lookup
 
 Previous conversation history:
-{{chat_history}}
+{chat_history}
 
 Remember to maintain context from the previous messages when answering follow-up questions.
 If a question seems incomplete, try to understand it in the context of previous messages.
@@ -119,8 +123,11 @@ agent_executor = AgentExecutor(
     return_intermediate_steps=True
 )
 
+# Convert AgentExecutor to Runnable
+runnable_agent = RunnablePassthrough() | agent_executor
+
 chat_agent = RunnableWithMessageHistory(
-    agent_executor,
+    runnable_agent,
     get_memory,
     input_messages_key="input",
     history_messages_key="chat_history",
@@ -132,20 +139,25 @@ def generate_response(user_input, show_intermediate_steps=False):
     
     try:
         logger.info("Invoking chat agent")
+        logger.info(f"Chat history: {get_memory(get_session_id()).messages}")
         response = chat_agent.invoke(
-            {"input": user_input},
+            {
+                "input": user_input,
+                "chat_history": get_memory(get_session_id()).messages  # Pass messages directly
+            },
             {"configurable": {"session_id": get_session_id()}},
         )
+        
         logger.debug(f"Raw chat agent response: {response}")
         
         # Log agent thoughts and actions
         if isinstance(response, dict) and 'intermediate_steps' in response:
+            logger.info("Tools Used:")
             for step in response['intermediate_steps']:
-                if isinstance(step, dict):
-                    logger.info(f"Agent Thought: {step.get('thought', '')}")
-                    logger.info(f"Agent Action: {step.get('action', '')}")
-                    logger.info(f"Agent Action Input: {step.get('action_input', '')}")
-                    logger.info(f"Agent Observation: {step.get('observation', '')}")
+                if isinstance(step, dict) and 'Action' in step:
+                    logger.info(f"🔧 Tool Used: {step['Action']}")
+                    logger.info(f"📥 Input: {step.get('Action Input', '')}")
+                    logger.info(f"👁️ Observation: {step.get('Observation', '')}\n")
         
         # Extract the actual response
         output = response.get('output', '')
