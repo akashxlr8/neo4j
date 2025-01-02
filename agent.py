@@ -57,21 +57,30 @@ def get_memory(session_id):
 
 agent_prompt = PromptTemplate.from_template("""
 You are a store expert providing information about products, orders, and customers in the Northwind database.
-You can use semantic search to find similar products and provide detailed product information.
-Be as helpful as possible and return as much information as possible.
-Do not answer any questions that do not relate to products, orders, or customers.
+
+IMPORTANT TOOL SELECTION GUIDELINES:
+1. Use "Product Search" tool for:
+   - Finding products by description
+   - Semantic similarity searches
+   - Questions about product details or ingredients
+   - Any natural language queries about products
+
+2. Use "Northwind information" tool for:
+   - Exact counts or numerical queries
+   - Customer information
+   - Order details
+   - Specific product lookups by ID or exact name
+   - Relationship queries (e.g., which supplier supplies what)
+
+3. Use "General Chat" tool for:
+   - General conversation
+   - Questions not requiring specific data lookup
 
 Previous conversation history:
 {{chat_history}}
 
 Remember to maintain context from the previous messages when answering follow-up questions.
-If a question seems incomplete, try to understand it in the context of previous messages. Scan thru the chat history to find relevant information.
-
-For each step, you should:
-1. Think about whether you need to use a tool
-2. Choose the appropriate tool
-3. Provide the input to the tool
-4. Use the observation to form your final answer
+If a question seems incomplete, try to understand it in the context of previous messages.
 
 TOOLS:
 ------
