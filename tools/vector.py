@@ -67,8 +67,3 @@ plot_retriever = create_retrieval_chain(
     question_answer_chain
 )
 # end::chain[]
-
-# tag::get_movie_plot[]
-def get_movie_plot(input):
-    return plot_retriever.invoke({"input": input})
-# end::get_movie_plot[]
