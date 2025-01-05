@@ -43,26 +43,30 @@ def handle_submit(message):
                     if current_tool_steps:
                         tool_count += 1
                         print(f"Showing Tool Use #{tool_count}")  # Debug print
-                        # Get the tool name from the first step that has an Action
-                        tool_name = next((step.get('Action', 'Tool Use') for step in current_tool_steps 
-                                         if isinstance(step, dict) and 'Action' in step), 'Tool Use')
-                        with st.expander(f"🔧️ {tool_name} (Tool Used: {step.get('Action', 'Unknown')}) #{tool_count}", expanded=False):
+                        
+                        # Get the tool name from the AgentAction object
+                        tool_name = current_tool_steps[0][0].tool if isinstance(current_tool_steps[0], tuple) and hasattr(current_tool_steps[0][0], 'tool') else 'Unknown'
+                        
+                        with st.expander(f"🔧️ Tool: {tool_name} #{tool_count}", expanded=False):
                             for prev_step in current_tool_steps:
                                 col1, col2 = st.columns([1, 4])
-                                for key, (emoji, label) in {
-                                    'Thought': ('🤔', 'Thought'),
-                                    'Action': ('⚡', 'Action'),
-                                    'Action Input': ('📥', 'Input'),
-                                    'Observation': ('👁️', 'Observation')
-                                }.items():
-                                    if key in prev_step:
-                                        col1.markdown(f"**{emoji} {label}:**")
-                                        if key == 'Action Input':
-                                            col2.markdown(f"```json\n{prev_step[key]}\n```")
-                                        elif key == 'Observation':
-                                            col2.markdown(f"```\n{prev_step[key]}\n```")
-                                        else:
-                                            col2.markdown(prev_step[key])
+                                # Extract information from AgentAction
+                                if isinstance(prev_step, tuple) and hasattr(prev_step[0], 'tool'):
+                                    thought_log = prev_step[0].log
+                                    action = prev_step[0].tool
+                                    action_input = prev_step[0].tool_input
+                                    observation = str(prev_step[1])
+                                    
+                                    # Display the components
+                                    if thought_log:
+                                        col1.markdown("**🤔 Thought:**")
+                                        col2.markdown(thought_log)
+                                    col1.markdown("**⚡ Action:**")
+                                    col2.markdown(action)
+                                    col1.markdown("**📥 Input:**")
+                                    col2.markdown(f"```json\n{action_input}\n```")
+                                    col1.markdown("**👁️ Observation:**")
+                                    col2.markdown(f"```\n{observation}\n```")
                         current_tool_steps = []
                 current_tool_steps.append(step)
             
