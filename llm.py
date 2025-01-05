@@ -13,7 +13,7 @@ llm = ChatOpenAI(
 
 # tag::embedding[]
 # Create the Embedding model
-from langchain_community.embeddings import JinaEmbeddings
+# from langchain_community.embeddings import JinaEmbeddings
 
 # embeddings = JinaEmbeddings(
 #     jina_api_key=st.secrets["JINA_API_KEY"],
