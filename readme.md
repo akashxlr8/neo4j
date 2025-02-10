@@ -1,3 +1,12 @@
+<div>
+    <a href="https://www.loom.com/share/109aa9e9768e4929ad4fb559831f47fe">
+      <p>Neo4j Chatbot · Streamlit - Google Chrome - 10 February 2025 - Watch Video</p>
+    </a>
+    <a href="https://www.loom.com/share/109aa9e9768e4929ad4fb559831f47fe">
+      <img style="max-width:300px;" src="https://cdn.loom.com/sessions/thumbnails/109aa9e9768e4929ad4fb559831f47fe-5dee3d221d60b96c-full-play.gif">
+    </a>
+  </div>
+
 # Chatbot Application Documentation
 
 This document provides a comprehensive overview of the chatbot application that utilizes Neo4j Graph Database for data storage and retrieval. The application is built using the Northwind dataset, which is a relational and open-source database. The chatbot interacts with the database stored in graph form, enabling advanced querying capabilities. The chatbot can be use to perform natural language queries over the database
