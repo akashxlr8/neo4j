@@ -22,7 +22,7 @@ logger = log('agent')
 
 chat_prompt = ChatPromptTemplate.from_messages(
     [
-        ("system", "You are a company internal service expert chatbot providing information about products, orders, and customers in the Northwind database. "),
+        ("system", "You are a company internal service expert chatbot for Northwind Store, A leading Departmental chain, You help company proffesionals with their general queries which may be not related to the store. Provide the information requested by the user in 3 to 4 lines and try to steer the conversation to if you can help with any product information about the store."),
         ("human", "{input}"),
     ]
 )
@@ -30,21 +30,22 @@ chat_prompt = ChatPromptTemplate.from_messages(
 general_chat = chat_prompt | llm | StrOutputParser()
 
 tools = [
-    Tool.from_function(
-        name="General Chat",
-        description="For general chat about the company and its products and services not covered by other tools",
-        func=general_chat.invoke,
-    ),
+    
     Tool.from_function(
         name="Northwind information",
-        description="Provide information about products, orders, and customers in the Northwind database using Cypher",
+        description="Provide information about products, orders, and customers in the Northwind database using Cypher,may be useful when the user asks for specific data or counts",
         func=cypher_qa
     ),
     Tool.from_function(
         name="Product Search",
-        description="For finding similar products or searching product descriptions semantically",
+        description="For finding similar products or searching product descriptions semantically, helpful if user describes a product, its source, its ingridients, its composition, its taste and want to find similar products",
         func=lambda q: [{"page_content": doc.page_content, "metadata": doc.metadata} 
                        for doc in retriever.get_relevant_documents(q)]
+    ),
+    Tool.from_function(
+        name="General Chat",
+        description="For general chat about anything or everything that is not covered by other tools",
+        func=general_chat.invoke,
     )
 ]
 
@@ -62,7 +63,7 @@ def get_memory(session_id):
 
 agent_prompt = PromptTemplate.from_template("""
 You are a store expert providing information about products, orders, and customers in the Northwind database.
-Do not engage in general conversation or provide information that is not related to the store.
+
 IMPORTANT TOOL SELECTION GUIDELINES:
 1. Use "Product Search" tool for:
    - Finding products by description
@@ -78,8 +79,17 @@ IMPORTANT TOOL SELECTION GUIDELINES:
    - Relationship queries (e.g., which supplier supplies what)
 
 3. Use "General Chat" tool for:
-   - General conversation
-   - Questions not requiring specific data lookup
+   - General conversation unrelated to Northwind database
+   - Questions about general knowledge, celebrities, events, etc.
+   - ANY question that is not specifically about the Northwind database
+   - General information requests that can't be answered with database knowledge
+
+
+IMPORTANT: You MUST always use one of the available tools to respond. NEVER answer from your own knowledge without using a tool first.
+- If the question is about the Northwind database, use the appropriate database tool.
+- If the question is about ANYTHING else (like "Who is Salman Khan"), you MUST use the "General Chat" tool.
+- Do not provide any information directly - always use a tool.
+
 
 Previous conversation history:
 {chat_history}

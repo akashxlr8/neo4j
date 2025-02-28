@@ -2,6 +2,7 @@ import streamlit as st
 from utils import write_message
 from agent import generate_response
 from logger import log
+import json
 
 logger = log('bot')
 
@@ -31,6 +32,32 @@ def handle_submit(message):
         
         print("Response received in bot.py:", response)  # Debug print
         
+        # Create an expander for the tool usage
+        if isinstance(response, dict) and 'intermediate_steps' in response and response['intermediate_steps']:
+            with st.expander("View thinking process", expanded=False):
+                for step in response['intermediate_steps']:
+                    if isinstance(step, tuple) and len(step) >= 2:
+                        # Extract the tool and observation
+                        tool_action = step[0]
+                        tool_observation = step[1]
+                        
+                        # Display tool action in bold
+                        st.markdown(f"**Tool:** {tool_action.tool}")
+                        st.markdown(f"**Input:** {tool_action.tool_input}")
+                        
+                        # Format the observation for better display
+                        st.markdown("**Result:**")
+                        if isinstance(tool_observation, dict) and 'result' in tool_observation:
+                            if isinstance(tool_observation['result'], list) and len(tool_observation['result']) > 0:
+                                st.table(tool_observation['result'])
+                            else:
+                                st.code(json.dumps(tool_observation['result'], indent=2), language="json")
+                        else:
+                            st.write(tool_observation)
+                        
+                        # Add a separator between steps
+                        st.markdown("---")
+        
         # Write the final response
         if isinstance(response, dict) and 'output' in response:
             cleaned_output = response['output'].strip('`').strip()
@@ -45,7 +72,7 @@ for message in st.session_state.messages:
         write_message(message['role'], message['content'], save=False)
 
 # Handle any user input
-if prompt := st.chat_input("What would you like to know about movies?"):
+if prompt := st.chat_input("What would you like to know about Northwind Store?"):
     logger.info(f"Received user input: {prompt}")
     # Display user message in chat message container
     write_message('user', prompt)
