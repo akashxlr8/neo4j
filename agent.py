@@ -13,6 +13,7 @@ from langchain.schema.runnable import RunnableMap
 from logger import log
 from langchain.agents.agent import AgentExecutor, BaseSingleActionAgent
 from langchain_core.runnables import RunnablePassthrough
+from langchain_community.callbacks.streamlit import StreamlitCallbackHandler
 
 from tools.cypher import cypher_qa
 from tools.vector import retriever
@@ -134,18 +135,28 @@ chat_agent = RunnableWithMessageHistory(
     output_messages_key="output"
 )
 
-def generate_response(user_input, show_intermediate_steps=False):
+def generate_response(user_input, show_intermediate_steps=False, st_container=None):
     logger.info(f"Starting response generation for input: {user_input}")
     
     try:
         logger.info("Invoking chat agent")
         logger.info(f"Chat history: {get_memory(get_session_id()).messages}")
+        
+        # Setup callbacks
+        callbacks = []
+        if st_container:
+            st_callback = StreamlitCallbackHandler(st_container)
+            callbacks.append(st_callback)
+        
         response = chat_agent.invoke(
             {
                 "input": user_input,
                 "chat_history": get_memory(get_session_id()).messages  # Pass messages directly
             },
-            {"configurable": {"session_id": get_session_id()}},
+            {
+                "configurable": {"session_id": get_session_id()},
+                "callbacks": callbacks if callbacks else None
+            },
         )
         
         logger.debug(f"Raw chat agent response: {response}")
